@@ -3,7 +3,7 @@
  *  @file selftest.c
  *  @author Robin Gareus <robin@gareus.org>
  *
- * Copyright 2009 Robin Gareus <robin@gareus.org>
+ * Copyright 2009, 2010, 2012 Robin Gareus <robin@gareus.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -71,6 +71,17 @@ int main (int argc, char **argv) {
   } else { 
     fail|=1;
   }
+
+  if (loglevel) printf("\n *** Testing PLAINTEXT signature.\n");
+  fail |= test_sign_get(
+      "http://host.net/resource" "?" "name=value&name=value"
+      "&oauth_nonce=fake&&oauth_timestamp=1",
+      OA_PLAINTEXT,
+      "abcd", "&",
+      "1234", "&",
+      "http://host.net/resource?name=value&name=value&oauth_consumer_key=abcd&oauth_nonce=fake&oauth_signature_method=PLAINTEXT&oauth_timestamp=1&oauth_token=1234&oauth_version=1.0&oauth_signature=%2526%26%2526"
+      );
+
 
   // report
   if (fail) {

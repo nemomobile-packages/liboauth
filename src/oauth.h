@@ -3,7 +3,7 @@
  *  @file oauth.h
  *  @author Robin Gareus <robin@gareus.org>
  *
- * Copyright 2007-2010 Robin Gareus <robin@gareus.org>
+ * Copyright 2007-2014 Robin Gareus <robin@gareus.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,17 +29,16 @@
 
 #ifndef DOXYGEN_IGNORE
 // liboauth version
-#define LIBOAUTH_VERSION "0.9.4"
-#define LIBOAUTH_VERSION_MAJOR  0
-#define LIBOAUTH_VERSION_MINOR  9
-#define LIBOAUTH_VERSION_MICRO  4
+#define LIBOAUTH_VERSION "1.0.3"
+#define LIBOAUTH_VERSION_MAJOR  1
+#define LIBOAUTH_VERSION_MINOR  0
+#define LIBOAUTH_VERSION_MICRO  3
 
 //interface revision number
 //http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 #define LIBOAUTH_CUR  8
-#define LIBOAUTH_REV  1
+#define LIBOAUTH_REV  7
 #define LIBOAUTH_AGE  8
-#endif
 
 #ifdef __GNUC__
 #    define OA_GCC_VERSION_AT_LEAST(x,y) (__GNUC__ > x || __GNUC__ == x && __GNUC_MINOR__ >= y)
@@ -53,6 +52,12 @@
 #else
 #    define attribute_deprecated
 #endif
+#endif
+
+#endif /* doxygen ignore */
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /** \enum OAuthMethod
@@ -121,7 +126,7 @@ char *oauth_url_unescape(const char *string, size_t *olen);
 char *oauth_sign_hmac_sha1 (const char *m, const char *k);
 
 /**
- * same as \ref oauth_sign_hmac_sha1 but allows
+ * same as \ref oauth_sign_hmac_sha1 but allows one
  * to specify length of message and key (in case they contain null chars).
  *
  * @param m message to be signed
@@ -175,7 +180,7 @@ int oauth_verify_rsa_sha1 (const char *m, const char *c, const char *s);
  * @param len the number of arguments to follow this parameter
  *
  * @return pointer to memory holding the concatenated 
- * strings - needs to be free(d) by the caller. or NULL
+ * strings - needs to be xfree(d) by the caller. or NULL
  * in case we ran out of memory.
  */
 char *oauth_catenc(int len, ...);
@@ -204,7 +209,7 @@ int oauth_split_url_parameters(const char *url, char ***argv);
  *  The array is re-allocated to match the number of parameters and each 
  *  parameter-string is allocated with strdup. - The memory needs to be freed
  *  by the caller.
- * @param qesc use query parameter escape (vs post-param-escape) - if set
+ * @param qesc  use query parameter escape (vs post-param-escape) - if set
  *        to 1 all '+' are treated as spaces ' '
  * 
  * @return number of parameter(s) in array.
@@ -214,9 +219,9 @@ int oauth_split_post_paramters(const char *url, char ***argv, short qesc);
 /**
  * build a url query string from an array.
  *
- * @param argc the total number of elements in the array
+ * @param argc  the total number of elements in the array
  * @param start element in the array at which to start concatenating.
- * @param argv parameter-array to concatenate.
+ * @param argv  parameter-array to concatenate.
  * @return url string needs to be freed by the caller.
  *
  */
@@ -291,7 +296,7 @@ void oauth_add_param_to_array(int *argcp, char ***argvp, const char *addparam);
  * free array args
  *
  * @param argcp pointer to array length int
- * @param argvp pointer to array values to be free()d
+ * @param argvp pointer to array values to be xfree()d
  */
 void oauth_free_array(int *argcp, char ***argvp);
 
@@ -390,7 +395,7 @@ char *oauth_sign_url (const char *url, char **postargs,
  * The user needs to call /ref oauth_serialize_url (oA)
  * and /ref oauth_free_array to do so.
  *
- * This allows to split parts of the URL to be used for
+ * This allows one to split parts of the URL to be used for
  * OAuth HTTP Authorization header:
  * see http://oauth.net/core/1.0a/#consumer_req_param
  * the oauthtest2 example code does so.
@@ -561,8 +566,10 @@ char *oauth_sign_xmpp (const char *xml,
  * @param q query string to send along with the HTTP request or NULL.
  * @return  In case of an error NULL is returned; otherwise a pointer to the
  * replied content from HTTP server. latter needs to be freed by caller.
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
-char *oauth_http_get (const char *u, const char *q);
+char *oauth_http_get (const char *u, const char *q) attribute_deprecated;
 
 /**
  * do a HTTP GET request, wait for it to finish 
@@ -570,9 +577,8 @@ char *oauth_http_get (const char *u, const char *q);
  *
  * (requires libcurl)
  *
- * This is equivalent to /ref oauth_http_get but allows to
- * specifiy a custom HTTP header and has
- * has no support for commandline-curl.
+ * This is equivalent to /ref oauth_http_get but allows one
+ * to specifiy a custom HTTP header andhas no support for commandline-curl.
  *
  * If liboauth is compiled <b>without</b> libcurl this function
  * always returns NULL.
@@ -583,8 +589,10 @@ char *oauth_http_get (const char *u, const char *q);
  * Multiple header elements can be passed separating them with "\r\n"
  * @return  In case of an error NULL is returned; otherwise a pointer to the
  * replied content from HTTP server. latter needs to be freed by caller.
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
-char *oauth_http_get2 (const char *u, const char *q, const char *customheader);
+char *oauth_http_get2 (const char *u, const char *q, const char *customheader) attribute_deprecated;
 
 
 /**
@@ -615,8 +623,10 @@ char *oauth_http_get2 (const char *u, const char *q, const char *customheader);
  * @param u url to query
  * @param p postargs to send along with the HTTP request.
  * @return replied content from HTTP server. needs to be freed by caller.
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
-char *oauth_http_post (const char *u, const char *p);
+char *oauth_http_post (const char *u, const char *p) attribute_deprecated;
 
 /**
  * do a HTTP POST request, wait for it to finish 
@@ -635,8 +645,10 @@ char *oauth_http_post (const char *u, const char *p);
  * @param customheader specify custom HTTP header (or NULL for none)
  * Multiple header elements can be passed separating them with "\r\n"
  * @return replied content from HTTP server. needs to be freed by caller.
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
-char *oauth_http_post2 (const char *u, const char *p, const char *customheader);
+char *oauth_http_post2 (const char *u, const char *p, const char *customheader) attribute_deprecated;
 
 
 /**
@@ -652,8 +664,10 @@ char *oauth_http_post2 (const char *u, const char *p, const char *customheader);
  * @param customheader specify custom HTTP header (or NULL for default).
  * Multiple header elements can be passed separating them with "\r\n"
  * @return returned HTTP reply or NULL on error
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
-char *oauth_post_file (const char *u, const char *fn, const size_t len, const char *customheader);
+char *oauth_post_file (const char *u, const char *fn, const size_t len, const char *customheader) attribute_deprecated;
 
 /**
  * http post raw data
@@ -668,8 +682,10 @@ char *oauth_post_file (const char *u, const char *fn, const size_t len, const ch
  * @param customheader specify custom HTTP header (or NULL for default)
  * Multiple header elements can be passed separating them with "\r\n"
  * @return returned HTTP reply or NULL on error
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
-char *oauth_post_data (const char *u, const char *data, size_t len, const char *customheader);
+char *oauth_post_data (const char *u, const char *data, size_t len, const char *customheader) attribute_deprecated;
 
 /**
  * http post raw data, with callback.
@@ -691,13 +707,15 @@ char *oauth_post_data (const char *u, const char *data, size_t len, const char *
  * @param callback specify the callback function
  * @param callback_data specify data to pass to the callback function
  * @return returned HTTP reply or NULL on error
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
 char *oauth_post_data_with_callback      (const char *u, 
                                           const char *data, 
                                           size_t len, 
                                           const char *customheader,
                                           void (*callback)(void*,int,size_t,size_t),
-                                          void *callback_data);
+                                          void *callback_data) attribute_deprecated;
 
 /**
  * http send raw data. similar to /ref oauth_http_post but provides
@@ -715,12 +733,14 @@ char *oauth_post_data_with_callback      (const char *u,
  * Multiple header elements can be passed separating them with "\r\n"
  * @param httpMethod specify http verb ("GET"/"POST"/"PUT"/"DELETE") to be used. if httpMethod is NULL, a POST is executed.
  * @return returned HTTP reply or NULL on error
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
 char *oauth_send_data (const char *u,
                        const char *data,
                        size_t len,
                        const char *customheader,
-                       const char *httpMethod);
+                       const char *httpMethod) attribute_deprecated;
 
 /**
  * http post raw data, with callback.
@@ -743,6 +763,8 @@ char *oauth_send_data (const char *u,
  * @param callback_data specify data to pass to the callback function
  * @param httpMethod specify http verb ("GET"/"POST"/"PUT"/"DELETE") to be used.
  * @return returned HTTP reply or NULL on error
+ *
+ * @deprecated use libcurl - http://curl.haxx.se/libcurl/c/
  */
 char *oauth_send_data_with_callback      (const char *u, 
                                           const char *data, 
@@ -750,7 +772,11 @@ char *oauth_send_data_with_callback      (const char *u,
                                           const char *customheader,
                                           void (*callback)(void*,int,size_t,size_t),
                                           void *callback_data,
-                                          const char *httpMethod);
+                                          const char *httpMethod) attribute_deprecated;
+
+#ifdef __cplusplus
+}       /* extern "C" */
+#endif  /* __cplusplus */
 
 #endif
 /* vi:set ts=8 sts=2 sw=2: */

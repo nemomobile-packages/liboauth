@@ -1,7 +1,7 @@
 /*
  * OAuth http functions in POSIX-C.
  *
- * Copyright 2007, 2008, 2009, 2010 Robin Gareus <robin@gareus.org>
+ * Copyright 2007-2011 Robin Gareus <robin@gareus.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,23 @@
 
 #ifdef HAVE_CURL /* HTTP requests via libcurl */
 #include <curl/curl.h>
-#include <sys/stat.h>
+
+# define GLOBAL_CURL_ENVIROMENT_OPTIONS \
+  if (getenv("CURLOPT_PROXYAUTH")){ \
+    curl_easy_setopt(curl, CURLOPT_PROXYAUTH, CURLAUTH_ANY); \
+  } \
+  if (getenv("CURLOPT_SSL_VERIFYPEER")){ \
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, (long) atol(getenv("CURLOPT_SSL_VERIFYPEER")) ); \
+  } \
+  if (getenv("CURLOPT_CAINFO")){ \
+    curl_easy_setopt(curl, CURLOPT_CAINFO, getenv("CURLOPT_CAINFO") ); \
+  } \
+  if (getenv("CURLOPT_FOLLOWLOCATION")){ \
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, (long) atol(getenv("CURLOPT_FOLLOWLOCATION")) ); \
+  } \
+  if (getenv("CURLOPT_FAILONERROR")){ \
+    curl_easy_setopt(curl, CURLOPT_FAILONERROR, (long) atol(getenv("CURLOPT_FAILONERROR")) ); \
+  }
 
 struct MemoryStruct {
   char *data;
@@ -127,6 +143,7 @@ char *oauth_curl_post (const char *u, const char *p, const char *customheader) {
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, OAUTH_CURL_TIMEOUT);
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 #endif
+  GLOBAL_CURL_ENVIROMENT_OPTIONS;
   res = curl_easy_perform(curl);
   curl_slist_free_all(slist);
   if (res) {
@@ -162,7 +179,10 @@ char *oauth_curl_get (const char *u, const char *q, const char *customheader) {
   chunk.size = 0;
 
   curl = curl_easy_init();
-  if(!curl) return NULL;
+  if(!curl) {
+    xfree(t1);
+    return NULL;
+  }
   curl_easy_setopt(curl, CURLOPT_URL, q?t1:u);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
@@ -181,14 +201,15 @@ char *oauth_curl_get (const char *u, const char *q, const char *customheader) {
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, OAUTH_CURL_TIMEOUT);
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 #endif
+  GLOBAL_CURL_ENVIROMENT_OPTIONS;
   res = curl_easy_perform(curl);
   curl_slist_free_all(slist);
-  if (q) free(t1);
+  xfree(t1);
+  curl_easy_cleanup(curl);
+
   if (res) {
     return NULL;
   }
-
-  curl_easy_cleanup(curl);
   return (chunk.data);
 }
 
@@ -197,9 +218,10 @@ char *oauth_curl_get (const char *u, const char *q, const char *customheader) {
  * the returned string needs to be freed by the caller
  *
  * @param u url to retrieve
- * @param fn filename of the file to post along
+ * @param fn filename of the file to post along (max 2GB)
  * @param len length of the file in bytes. set to '0' for autodetection
  * @param customheader specify custom HTTP header (or NULL for default)
+ *        the default header adds "Content-Type: image/jpeg;"
  * @return returned HTTP or NULL on error
  */
 char *oauth_curl_post_file (const char *u, const char *fn, size_t len, const char *customheader) {
@@ -208,6 +230,7 @@ char *oauth_curl_post_file (const char *u, const char *fn, size_t len, const cha
   struct curl_slist *slist=NULL;
   struct MemoryStruct chunk;
   FILE *f;
+  long filelen;
 
   chunk.data=NULL;
   chunk.size=0;
@@ -215,19 +238,24 @@ char *oauth_curl_post_file (const char *u, const char *fn, size_t len, const cha
   if (customheader)
     slist = curl_slist_append(slist, customheader);
   else
-    slist = curl_slist_append(slist, "Content-Type: image/jpeg;");
-
-  if (!len) {
-    struct stat statbuf;
-    if (stat(fn, &statbuf) == -1) return(NULL);
-    len = statbuf.st_size;
-  }
+    slist = curl_slist_append(slist, "Content-Type: image/jpeg;"); // good guess :)
 
   f = fopen(fn,"r");
   if (!f) return NULL;
 
+  fseek(f, 0L, SEEK_END);
+  filelen = ftell(f);
+  fseek(f, 0L, SEEK_SET);
+
+  if (!len || len > filelen) {
+    len = filelen;
+  }
+
   curl = curl_easy_init();
-  if(!curl) return NULL;
+  if(!curl) {
+    fclose(f);
+    return NULL;
+  }
   curl_easy_setopt(curl, CURLOPT_URL, u);
   curl_easy_setopt(curl, CURLOPT_POST, 1);
   curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, len);
@@ -240,13 +268,14 @@ char *oauth_curl_post_file (const char *u, const char *fn, size_t len, const cha
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, OAUTH_CURL_TIMEOUT);
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 #endif
+  GLOBAL_CURL_ENVIROMENT_OPTIONS;
   res = curl_easy_perform(curl);
   curl_slist_free_all(slist);
+  fclose(f);
   if (res) {
     // error
     return NULL;
   }
-  fclose(f);
 
   curl_easy_cleanup(curl);
   return (chunk.data);
@@ -262,6 +291,7 @@ char *oauth_curl_post_file (const char *u, const char *fn, size_t len, const cha
  * @param data data to post along
  * @param len length of the file in bytes. set to '0' for autodetection
  * @param customheader specify custom HTTP header (or NULL for default)
+ *        the default header adds "Content-Type: image/jpeg;"
  * @param callback specify the callback function
  * @param callback_data specify data to pass to the callback function
  * @return returned HTTP reply or NULL on error
@@ -311,6 +341,7 @@ char *oauth_curl_send_data_with_callback (const char *u, const char *data, size_
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, OAUTH_CURL_TIMEOUT);
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 #endif
+  GLOBAL_CURL_ENVIROMENT_OPTIONS;
   res = curl_easy_perform(curl);
   curl_slist_free_all(slist);
   if (res) {
@@ -388,7 +419,7 @@ char *oauth_curl_post_data_with_callback (const char *u, const char *data, size_
 
 /**
  *  escape URL for use in String Quotes (aka shell single quotes).
- *  the returned string needs to be free()d by the calling function
+ *  the returned string needs to be xfree()d by the calling function
  *
  * WARNING: this function only escapes single-quotes (')
  *
@@ -447,7 +478,7 @@ char *oauth_exec_shell (const char *cmd) {
   while (in && rcv > 0 && !feof(in)) {
     alloc +=1024;
     data = (char*)xrealloc(data, alloc * sizeof(char));
-    rcv = fread(data, sizeof(char), 1024, in);
+    rcv = fread(data + (alloc-1024), sizeof(char), 1024, in);
     len += rcv;
   }
   pclose(in);
@@ -497,8 +528,8 @@ char *oauth_exec_post (const char *u, const char *p) {
     t2=oauth_escape_shell(u);
   }
   snprintf(cmd, BUFSIZ, cmdtpl, t1, t2);
-  free(cmdtpl);
-  free(t1); free(t2);
+  xfree(cmdtpl);
+  xfree(t1); xfree(t2);
   return oauth_exec_shell(cmd);
 }
 
@@ -530,6 +561,7 @@ char *oauth_exec_get (const char *u, const char *q) {
   t1=strstr(cmdtpl, "%u");
   if (!t1) {
     fprintf(stderr, "\nliboauth: invalid HTTP command. set the '%s' environment variable.\n\n",_OAUTH_ENV_HTTPGET);
+    xfree(cmdtpl);
     return(NULL);
   }
   *(++t1)= 's';
@@ -540,12 +572,12 @@ char *oauth_exec_get (const char *u, const char *q) {
     e2 = oauth_escape_shell(q);
     t1=(char*)xmalloc(sizeof(char)*(strlen(e1)+strlen(e2)+2));
     strcpy(t1,e1); strcat(t1,"?"); strcat(t1,e2);
-    free(e2);
+    xfree(e2);
   }
   snprintf(cmd, BUFSIZ, cmdtpl, q?t1:e1);
-  free(cmdtpl);
-  free(e1);
-  if (q) free(t1);
+  xfree(cmdtpl);
+  xfree(e1);
+  if (q) xfree(t1);
   return oauth_exec_shell(cmd);
 }
 #endif // command-line curl.

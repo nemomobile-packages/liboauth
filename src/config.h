@@ -22,6 +22,9 @@
 /* Define as 1 if you have libcurl */
 #define HAVE_CURL 1
 
+/* Define to 1 if you have the <curl/curl.h> header file. */
+/* #undef HAVE_CURL_CURL_H */
+
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
 #define HAVE_DIRENT_H 1
@@ -147,8 +150,14 @@
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 /* #undef TM_IN_SYS_TIME */
 
+/* Define to use neither NSS nor OpenSSL */
+/* #undef USE_BUILTIN_HASH */
+
 /* Define to use NSS instead of OpenSSL */
 /* #undef USE_NSS */
 
 /* Version number of package */
-#define VERSION "0.9.4"
+#define VERSION "1.0.3"
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+/* #undef size_t */

@@ -3,7 +3,7 @@
  *  @file commontest.c
  *  @author Robin Gareus <robin@gareus.org>
  *
- * Copyright 2007, 2008 Robin Gareus <robin@gareus.org>
+ * Copyright 2007, 2008, 2012 Robin Gareus <robin@gareus.org>
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -151,5 +151,27 @@ int test_sha1(char *c_secret, char *t_secret, char *base, char *expected) {
   } else if (loglevel) printf("HMAC-SHA1 test sucessful.\n");
   free(b64d);
   free(okey);
+  return (rv);
+}
+
+int test_sign_get(
+    char const * const url,
+    OAuthMethod method,
+    const char *c_key,
+    const char *c_secret,
+    const char *t_key,
+    const char *t_secret,
+    const char *expected) {
+  int rv=0;
+  char *geturl = NULL;
+  geturl = oauth_sign_url2(url, NULL, method, NULL, c_key, c_secret, t_key, t_secret);
+  printf("GET: URL:%s\n", geturl);
+  rv=strcmp(geturl,expected);
+  if (rv) {
+    printf("test_sign_get failed:\n"
+           " got:      '%s'\n expected: '%s'\n", geturl, expected);
+  }
+  else if (loglevel) printf("PLAINTEXT signature ok.\n");
+  if(geturl) free(geturl);
   return (rv);
 }
